@@ -1,5 +1,6 @@
 package command
 
+// Dispatch routes command-line arguments to the appropriate subcommand handler.
 func Dispatch(args []string) error {
 	if len(args) == 0 {
 		helpHandler()
