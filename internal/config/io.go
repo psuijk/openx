@@ -36,3 +36,25 @@ func Store(cfg Config) error {
 
 	return nil
 }
+
+func Load(name string) (*Config, error) {
+	path, err := GetProjectConfigPath(name)
+	if err != nil {
+		return nil, fmt.Errorf("resolve config path: %w", err)
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open config file: %w", err)
+	}
+	defer file.Close()
+
+	var cfg Config
+
+	_, err = toml.NewDecoder(file).Decode(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("read config from %s: %w", path, err)
+	}
+
+	return &cfg, nil
+}
