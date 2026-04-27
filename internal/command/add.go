@@ -10,19 +10,15 @@ import (
 )
 
 func addHandler(args []string) error {
-
 	fs := flag.NewFlagSet("add flags", flag.ContinueOnError)
 
 	curDir, err := os.Getwd()
-
 	if err != nil {
 		return fmt.Errorf("get current directory: %w", err)
 	}
 
 	path := fs.String("path", curDir, "project directory path")
-
 	err = fs.Parse(args)
-
 	if err != nil {
 		return fmt.Errorf("parse add flags: %w", err)
 	}
@@ -32,9 +28,7 @@ func addHandler(args []string) error {
 	}
 
 	cfg := config.Config{Name: fs.Args()[0], Path: *path}
-
 	err = config.Store(cfg)
-
 	if err != nil {
 		return fmt.Errorf("saving new config: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 )
 
+// GetBaseConfigDir returns the openx config directory, using $XDG_CONFIG_HOME or ~/.config/openx.
 func GetBaseConfigDir() (string, error) {
 	if basePath := os.Getenv("XDG_CONFIG_HOME"); basePath != "" {
 		return filepath.Join(basePath, "openx"), nil
@@ -19,6 +20,7 @@ func GetBaseConfigDir() (string, error) {
 	return filepath.Join(userHome, ".config", "openx"), nil
 }
 
+// GetProjectsDir returns the directory where project config files are stored.
 func GetProjectsDir() (string, error) {
 	configPath, err := GetBaseConfigDir()
 	if err != nil {
@@ -28,6 +30,7 @@ func GetProjectsDir() (string, error) {
 	return filepath.Join(configPath, "projects"), nil
 }
 
+// GetProjectConfigPath returns the file path for a project's TOML config.
 func GetProjectConfigPath(projectName string) (string, error) {
 	projectsDir, err := GetProjectsDir()
 	if err != nil {
