@@ -32,5 +32,14 @@ func editHandler(args []string) error {
 		return fmt.Errorf("opening editor: %w", err)
 	}
 
+	cfg, err := config.Load(args[0])
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	if err = config.Validate(*cfg); err != nil {
+		return fmt.Errorf("validating config: %w", err)
+	}
+
 	return nil
 }

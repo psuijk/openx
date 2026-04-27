@@ -27,7 +27,10 @@ func addHandler(args []string) error {
 		return errors.New("usage: openx add <project-name> [--path PATH]")
 	}
 
-	cfg := config.Config{Name: fs.Args()[0], Path: *path}
+	cfg := config.Config{Name: fs.Args()[0], Path: *path, DefaultMode: "new_window"}
+	if err := config.Validate(cfg); err != nil {
+		return fmt.Errorf("validate config: %w", err)
+	}
 	err = config.Store(cfg)
 	if err != nil {
 		return fmt.Errorf("saving new config: %w", err)
