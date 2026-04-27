@@ -23,7 +23,7 @@ func addHandler(args []string) error {
 		return fmt.Errorf("parse add flags: %w", err)
 	}
 
-	if len(fs.Args()) == 0 {
+	if len(fs.Args()) != 1 {
 		return errors.New("usage: openx add <project-name> [--path PATH]")
 	}
 
