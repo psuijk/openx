@@ -37,6 +37,7 @@ func Store(cfg Config) error {
 	return nil
 }
 
+// Load reads a project's TOML config from disk and returns it.
 func Load(name string) (*Config, error) {
 	path, err := GetProjectConfigPath(name)
 	if err != nil {

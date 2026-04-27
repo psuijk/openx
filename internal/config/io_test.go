@@ -80,6 +80,66 @@ func TestStore_WritesValidTOML(t *testing.T) {
 	}
 }
 
+func TestLoad_ReturnsConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	original := Config{
+		Name:        "loadtest",
+		Path:        "/home/user/loadtest",
+		DefaultMode: "join",
+		Backend:     "cmux",
+		PreOpen:     []string{"git pull"},
+		PostOpen:    []string{"code ."},
+		Tabs: []Tab{
+			{Name: "shell", Command: ""},
+			{Name: "dev", Command: "npm start"},
+		},
+	}
+
+	err := Store(original)
+	if err != nil {
+		t.Fatalf("Store failed: %v", err)
+	}
+
+	loaded, err := Load("loadtest")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if loaded.Name != original.Name {
+		t.Errorf("Name: got %q, want %q", loaded.Name, original.Name)
+	}
+	if loaded.Path != original.Path {
+		t.Errorf("Path: got %q, want %q", loaded.Path, original.Path)
+	}
+	if loaded.DefaultMode != original.DefaultMode {
+		t.Errorf("DefaultMode: got %q, want %q", loaded.DefaultMode, original.DefaultMode)
+	}
+	if loaded.Backend != original.Backend {
+		t.Errorf("Backend: got %q, want %q", loaded.Backend, original.Backend)
+	}
+	if len(loaded.Tabs) != len(original.Tabs) {
+		t.Errorf("Tabs count: got %d, want %d", len(loaded.Tabs), len(original.Tabs))
+	}
+	if len(loaded.PreOpen) != 1 || loaded.PreOpen[0] != "git pull" {
+		t.Errorf("PreOpen: got %v, want %v", loaded.PreOpen, original.PreOpen)
+	}
+	if len(loaded.PostOpen) != 1 || loaded.PostOpen[0] != "code ." {
+		t.Errorf("PostOpen: got %v, want %v", loaded.PostOpen, original.PostOpen)
+	}
+}
+
+func TestLoad_NonexistentProject(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	_, err := Load("doesnotexist")
+	if err == nil {
+		t.Fatal("expected error loading nonexistent project, got nil")
+	}
+}
+
 func TestStore_CreatesDirectories(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmpDir)
