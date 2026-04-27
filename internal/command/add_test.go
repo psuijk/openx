@@ -13,7 +13,8 @@ func TestAddHandler_CreatesConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmpDir)
 
-	err := addHandler([]string{"--path", "/some/path", "testproject"})
+	projectDir := t.TempDir()
+	err := addHandler([]string{"--path", projectDir, "testproject"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -31,8 +32,8 @@ func TestAddHandler_CreatesConfig(t *testing.T) {
 	if cfg.Name != "testproject" {
 		t.Errorf("Name: got %q, want %q", cfg.Name, "testproject")
 	}
-	if cfg.Path != "/some/path" {
-		t.Errorf("Path: got %q, want %q", cfg.Path, "/some/path")
+	if cfg.Path != projectDir {
+		t.Errorf("Path: got %q, want %q", cfg.Path, projectDir)
 	}
 }
 
