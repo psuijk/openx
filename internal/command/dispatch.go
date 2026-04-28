@@ -18,6 +18,10 @@ func Dispatch(args []string) error {
 		return editHandler(args[1:])
 	case "remove":
 		return removeHandler(args[1:])
+	case "add-tab":
+		return addTabHandler(args[1:])
+	case "clone":
+		return cloneHandler(args[1:])
 	case "help", "-h", "--help", "":
 		helpHandler()
 	case "version":
