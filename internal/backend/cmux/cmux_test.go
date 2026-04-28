@@ -1,12 +1,13 @@
 package cmux
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/psuijk/openx/internal/config"
 )
 
-func TestBuild_BasicPlan(t *testing.T) {
+func TestBuild_NewWindow_BasicPlan(t *testing.T) {
 	b := &CmuxBackend{}
 	cfg := config.Config{
 		Name: "testproject",
@@ -31,18 +32,16 @@ func TestBuild_BasicPlan(t *testing.T) {
 		t.Errorf("PreOpen[0].Command: got %q, want %q", p.PreOpen[0].Command, "git fetch")
 	}
 
-	// 1 workspace + 2 tabs = 3 backend steps
-	if len(p.Backend) != 3 {
-		t.Errorf("Backend: got %d steps, want 3", len(p.Backend))
+	// First step creates workspace, then rename first tab, then new-surface + rename for second tab + send command
+	// workspace(1) + rename(1) + new-surface(1) + rename(1) + send(1) = 5
+	if len(p.Backend) != 5 {
+		t.Errorf("Backend: got %d steps, want 5", len(p.Backend))
 	}
-	if p.Backend[0].Command != "cmux new-workspace --name testproject" {
-		t.Errorf("Backend[0].Command: got %q, want workspace creation command", p.Backend[0].Command)
+	if !strings.Contains(p.Backend[0].Command, "cmux new-workspace") {
+		t.Errorf("Backend[0]: expected new-workspace, got %q", p.Backend[0].Command)
 	}
-	if p.Backend[1].Command != "cmux new-surface --name shell" {
-		t.Errorf("Backend[1].Command: got %q, want surface without --command", p.Backend[1].Command)
-	}
-	if p.Backend[2].Command != "cmux new-surface --name claude --command claude" {
-		t.Errorf("Backend[2].Command: got %q, want surface with --command", p.Backend[2].Command)
+	if !strings.Contains(p.Backend[0].Command, "--cwd") {
+		t.Errorf("Backend[0]: expected --cwd flag, got %q", p.Backend[0].Command)
 	}
 
 	if len(p.PostOpen) != 1 {
@@ -53,7 +52,49 @@ func TestBuild_BasicPlan(t *testing.T) {
 	}
 }
 
-func TestBuild_NoTabs(t *testing.T) {
+func TestBuild_NewWindow_FirstTabCommand(t *testing.T) {
+	b := &CmuxBackend{}
+	cfg := config.Config{
+		Name: "myproject",
+		Path: "/some/path",
+		Tabs: []config.Tab{
+			{Name: "dev", Command: "npm start"},
+		},
+	}
+
+	p, err := b.Build(cfg, "new_window")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// First tab command should be passed to new-workspace via --command
+	if !strings.Contains(p.Backend[0].Command, "--command") {
+		t.Errorf("expected --command in workspace creation, got %q", p.Backend[0].Command)
+	}
+}
+
+func TestBuild_NewWindow_FirstTabNoCommand(t *testing.T) {
+	b := &CmuxBackend{}
+	cfg := config.Config{
+		Name: "myproject",
+		Path: "/some/path",
+		Tabs: []config.Tab{
+			{Name: "shell", Command: ""},
+		},
+	}
+
+	p, err := b.Build(cfg, "new_window")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// No command for first tab, so --command should not appear
+	if strings.Contains(p.Backend[0].Command, "--command") {
+		t.Errorf("expected no --command in workspace creation, got %q", p.Backend[0].Command)
+	}
+}
+
+func TestBuild_NewWindow_NoTabs(t *testing.T) {
 	b := &CmuxBackend{}
 	cfg := config.Config{
 		Name: "empty",
@@ -65,9 +106,60 @@ func TestBuild_NoTabs(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Just the workspace creation step
 	if len(p.Backend) != 1 {
 		t.Errorf("Backend: got %d steps, want 1", len(p.Backend))
+	}
+}
+
+func TestBuild_JoinMode(t *testing.T) {
+	b := &CmuxBackend{}
+	cfg := config.Config{
+		Name: "testproject",
+		Path: "/some/path",
+		Tabs: []config.Tab{
+			{Name: "shell", Command: ""},
+			{Name: "claude", Command: "claude"},
+		},
+	}
+
+	p, err := b.Build(cfg, "join")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Join mode should not create a workspace
+	for _, step := range p.Backend {
+		if strings.Contains(step.Command, "new-workspace") {
+			t.Error("join mode should not create a new workspace")
+		}
+	}
+
+	// Should have new-surface + rename for each tab, plus send for claude
+	// shell: new-surface(1) + rename(1) = 2
+	// claude: new-surface(1) + rename(1) + send(1) = 3
+	// total = 5
+	if len(p.Backend) != 5 {
+		t.Errorf("Backend: got %d steps, want 5", len(p.Backend))
+	}
+}
+
+func TestBuild_Descriptions(t *testing.T) {
+	b := &CmuxBackend{}
+	cfg := config.Config{
+		Name: "myproject",
+		Path: "/some/path",
+		Tabs: []config.Tab{
+			{Name: "dev", Command: "npm start"},
+		},
+	}
+
+	p, err := b.Build(cfg, "new_window")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if p.Backend[0].Description != `create workspace "myproject"` {
+		t.Errorf("workspace description: got %q", p.Backend[0].Description)
 	}
 }
 
@@ -91,29 +183,6 @@ func TestBuild_NoPrePostOpen(t *testing.T) {
 	}
 	if len(p.PostOpen) != 0 {
 		t.Errorf("PostOpen: got %d steps, want 0", len(p.PostOpen))
-	}
-}
-
-func TestBuild_Descriptions(t *testing.T) {
-	b := &CmuxBackend{}
-	cfg := config.Config{
-		Name: "myproject",
-		Path: "/some/path",
-		Tabs: []config.Tab{
-			{Name: "dev", Command: "npm start"},
-		},
-	}
-
-	p, err := b.Build(cfg, "new_window")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if p.Backend[0].Description != `create workspace "myproject"` {
-		t.Errorf("workspace description: got %q", p.Backend[0].Description)
-	}
-	if p.Backend[1].Description != `create tab "dev"` {
-		t.Errorf("tab description: got %q", p.Backend[1].Description)
 	}
 }
 

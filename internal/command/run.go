@@ -79,7 +79,10 @@ func runHandler(args []string) error {
 			return fmt.Errorf("printing plan: %w", err)
 		}
 	} else {
-		// TODO: execute plan (M3)
+		err = actBackend.Execute(p, cfg.Path)
+		if err != nil {
+			return fmt.Errorf("executing plan: %w", err)
+		}
 	}
 
 	return nil
