@@ -27,7 +27,12 @@ func addHandler(args []string) error {
 		return errors.New("usage: openx add <project-name> [--path PATH]")
 	}
 
-	cfg := config.Config{Name: fs.Args()[0], Path: *path, DefaultMode: "new_window"}
+	glblCfg, err := config.LoadGlobal()
+	if err != nil {
+		return fmt.Errorf("loading global config: %w", err)
+	}
+
+	cfg := config.Config{Name: fs.Args()[0], Path: *path, DefaultMode: glblCfg.DefaultMode, Backend: glblCfg.DefaultBackend}
 	if err := config.Validate(cfg); err != nil {
 		return fmt.Errorf("validate config: %w", err)
 	}

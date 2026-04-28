@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
@@ -58,4 +59,31 @@ func Load(name string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// LoadGlobal reads the global config, returning sensible defaults if the file doesn't exist.
+func LoadGlobal() (*GlobalConfig, error) {
+	basePath, err := GetBaseConfigDir()
+	if err != nil {
+		return nil, fmt.Errorf("resolve config path: %w", err)
+	}
+
+	glblcfgPath := filepath.Join(basePath, "config.toml")
+
+	file, err := os.Open(glblcfgPath)
+	if os.IsNotExist(err) {
+		return &GlobalConfig{DefaultBackend: "cmux", DefaultMode: "new_window"}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("open config file: %w", err)
+	}
+	defer file.Close()
+
+	var glblcfg GlobalConfig
+	_, err = toml.NewDecoder(file).Decode(&glblcfg)
+	if err != nil {
+		return nil, fmt.Errorf("read config from %s: %w", glblcfgPath, err)
+	}
+
+	return &glblcfg, nil
 }

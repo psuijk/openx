@@ -26,9 +26,9 @@ func TestDispatch_Version(t *testing.T) {
 }
 
 func TestDispatch_UnknownCommand(t *testing.T) {
-	// Unknown commands route to runHandler, which prints "not implemented"
+	// Unknown commands route to runHandler, which tries to load a project config
 	err := Dispatch([]string{"nonexistent"})
-	if err != nil {
-		t.Fatalf("expected no error for unknown command (routes to run), got: %v", err)
+	if err == nil {
+		t.Fatal("expected error for nonexistent project")
 	}
 }

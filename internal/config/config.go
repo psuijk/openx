@@ -16,3 +16,9 @@ type Config struct {
 	PostOpen    []string `toml:"post_open"`
 	Tabs        []Tab    `toml:"tabs"`
 }
+
+// GlobalConfig represents the global openx settings from config.toml.
+type GlobalConfig struct {
+	DefaultMode    string `toml:"default_mode"`
+	DefaultBackend string `toml:"default_backend"`
+}

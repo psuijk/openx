@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/psuijk/openx/internal/command"
+
+	_ "github.com/psuijk/openx/internal/backend/cmux"
 )
 
 func main() {

@@ -23,7 +23,7 @@ func Dispatch(args []string) error {
 	case "version":
 		versionHandler()
 	default:
-		return runHandler(args[1:])
+		return runHandler(args)
 	}
 
 	return nil
