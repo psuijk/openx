@@ -29,25 +29,7 @@ func (cmx *CmuxBackend) Build(cfg config.Config, mode string) (*plan.Plan, error
 		preOpen = append(preOpen, plan.Step{Command: stp, Description: stp})
 	}
 
-	if mode == "join" {
-		// Join mode: add tabs to the current workspace (CMUX_WORKSPACE_ID is auto-set)
-		for _, tab := range cfg.Tabs {
-			backendStps = append(backendStps, plan.Step{
-				Command:     "cmux new-surface",
-				Description: fmt.Sprintf("create tab %q", tab.Name),
-			})
-			backendStps = append(backendStps, plan.Step{
-				Command:     fmt.Sprintf("cmux rename-tab %q", tab.Name),
-				Description: fmt.Sprintf("rename tab to %q", tab.Name),
-			})
-			if tab.Command != "" {
-				backendStps = append(backendStps, plan.Step{
-					Command:     fmt.Sprintf(`cmux send "%s\n"`, tab.Command),
-					Description: fmt.Sprintf("run %q in tab %q", tab.Command, tab.Name),
-				})
-			}
-		}
-	} else if mode == "new_window" {
+	if mode == "new_window" {
 		// New window mode: create window, reuse its default workspace via tree parsing
 		backendStps = append(backendStps, plan.Step{
 			Command:     "cmux new-window",

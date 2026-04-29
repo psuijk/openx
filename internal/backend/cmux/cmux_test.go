@@ -160,20 +160,14 @@ func TestBuild_JoinMode(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	// Join creates a new workspace in the current window (same as default)
+	if !strings.Contains(p.Backend[0].Command, "cmux new-workspace") {
+		t.Errorf("Backend[0]: expected new-workspace, got %q", p.Backend[0].Command)
+	}
 	for _, step := range p.Backend {
-		if strings.Contains(step.Command, "new-workspace") {
-			t.Error("join mode should not create a new workspace")
-		}
-		if strings.Contains(step.Command, "new-window") {
+		if step.Command == "cmux new-window" {
 			t.Error("join mode should not create a new window")
 		}
-	}
-
-	// shell: new-surface(1) + rename(1) = 2
-	// claude: new-surface(1) + rename(1) + send(1) = 3
-	// total = 5
-	if len(p.Backend) != 5 {
-		t.Errorf("Backend: got %d steps, want 5", len(p.Backend))
 	}
 }
 
