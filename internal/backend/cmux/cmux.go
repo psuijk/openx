@@ -42,16 +42,56 @@ func (cmx *CmuxBackend) Build(cfg config.Config, mode string) (*plan.Plan, error
 			})
 			if tab.Command != "" {
 				backendStps = append(backendStps, plan.Step{
-					Command:     fmt.Sprintf("cmux send %q", tab.Command),
+					Command:     fmt.Sprintf(`cmux send "%s\n"`, tab.Command),
 					Description: fmt.Sprintf("run %q in tab %q", tab.Command, tab.Name),
 				})
 			}
 		}
+	} else if mode == "new_window" {
+		// New window mode: create window, reuse its default workspace via tree parsing
+		backendStps = append(backendStps, plan.Step{
+			Command:     "cmux new-window",
+			Description: "create new cmux window",
+		})
+		backendStps = append(backendStps, plan.Step{
+			Command:     fmt.Sprintf("cmux rename-workspace %q", cfg.Name),
+			Description: fmt.Sprintf("rename workspace to %q", cfg.Name),
+		})
+
+		if len(cfg.Tabs) > 0 {
+			first := cfg.Tabs[0]
+			backendStps = append(backendStps, plan.Step{
+				Command:     fmt.Sprintf("cmux rename-tab %q", first.Name),
+				Description: fmt.Sprintf("rename tab to %q", first.Name),
+			})
+			if first.Command != "" {
+				backendStps = append(backendStps, plan.Step{
+					Command:     fmt.Sprintf(`cmux send "%s\n"`, first.Command),
+					Description: fmt.Sprintf("run %q in tab %q", first.Command, first.Name),
+				})
+			}
+
+			for _, tab := range cfg.Tabs[1:] {
+				backendStps = append(backendStps, plan.Step{
+					Command:     "cmux new-surface",
+					Description: fmt.Sprintf("create tab %q", tab.Name),
+				})
+				backendStps = append(backendStps, plan.Step{
+					Command:     fmt.Sprintf("cmux rename-tab %q", tab.Name),
+					Description: fmt.Sprintf("rename tab to %q", tab.Name),
+				})
+				if tab.Command != "" {
+					backendStps = append(backendStps, plan.Step{
+						Command:     fmt.Sprintf(`cmux send "%s\n"`, tab.Command),
+						Description: fmt.Sprintf("run %q in tab %q", tab.Command, tab.Name),
+					})
+				}
+			}
+		}
 	} else {
-		// New window mode: create a workspace, then add tabs
+		// Default mode: create a new workspace in the current window
 		newWsCmd := fmt.Sprintf("cmux new-workspace --name %q --cwd %q", cfg.Name, cfg.Path)
 
-		// First tab gets created with the workspace
 		if len(cfg.Tabs) > 0 {
 			first := cfg.Tabs[0]
 			if first.Command != "" {
@@ -66,7 +106,6 @@ func (cmx *CmuxBackend) Build(cfg config.Config, mode string) (*plan.Plan, error
 				Description: fmt.Sprintf("rename tab to %q", first.Name),
 			})
 
-			// Remaining tabs
 			for _, tab := range cfg.Tabs[1:] {
 				backendStps = append(backendStps, plan.Step{
 					Command:     "cmux new-surface",
@@ -78,13 +117,12 @@ func (cmx *CmuxBackend) Build(cfg config.Config, mode string) (*plan.Plan, error
 				})
 				if tab.Command != "" {
 					backendStps = append(backendStps, plan.Step{
-						Command:     fmt.Sprintf("cmux send %q", tab.Command),
+						Command:     fmt.Sprintf(`cmux send "%s\n"`, tab.Command),
 						Description: fmt.Sprintf("run %q in tab %q", tab.Command, tab.Name),
 					})
 				}
 			}
 		} else {
-			// No tabs, just create the workspace
 			backendStps = append(backendStps, plan.Step{
 				Command:     newWsCmd,
 				Description: fmt.Sprintf("create workspace %q", cfg.Name),
@@ -112,11 +150,56 @@ func (cmx *CmuxBackend) Execute(p *plan.Plan, dir string) error {
 	// Run backend steps, capturing workspace/surface refs to pass between commands
 	var workspaceRef string
 	var surfaceRef string
+	var windowID string
 
 	for _, stp := range p.Backend {
 		cmd := stp.Command
 
 		switch {
+		case cmd == "cmux new-window":
+			out, err := shell.ExecuteCapture(cmd, dir)
+			if err != nil {
+				return fmt.Errorf("backend step failed: %w", err)
+			}
+			// Output: "OK <uuid>"
+			windowID = strings.TrimPrefix(out, "OK ")
+			windowID = strings.TrimSpace(windowID)
+			// Parse tree to find the default workspace and surface in the new window.
+			// The new window is marked with [current] in the tree output.
+			treeOut, err := shell.ExecuteCapture("cmux tree --all", dir)
+			if err != nil {
+				return fmt.Errorf("failed to read cmux tree: %w", err)
+			}
+			inNewWindow := false
+			for _, line := range strings.Split(treeOut, "\n") {
+				trimmed := strings.TrimSpace(line)
+				if strings.HasPrefix(trimmed, "window ") && strings.Contains(line, "[current]") {
+					inNewWindow = true
+					continue
+				}
+				if inNewWindow && strings.HasPrefix(trimmed, "window ") {
+					break
+				}
+				if inNewWindow {
+					for _, f := range strings.Fields(line) {
+						if strings.HasPrefix(f, "workspace:") && workspaceRef == "" {
+							workspaceRef = f
+						}
+						if strings.HasPrefix(f, "surface:") && surfaceRef == "" {
+							surfaceRef = f
+						}
+					}
+				}
+			}
+
+		case strings.HasPrefix(cmd, "cmux rename-workspace"):
+			title := strings.TrimPrefix(cmd, "cmux rename-workspace ")
+			rwCmd := fmt.Sprintf("cmux rename-workspace --workspace %s %s", workspaceRef, title)
+			err := shell.Execute(rwCmd, dir)
+			if err != nil {
+				return fmt.Errorf("backend step failed: %w", err)
+			}
+
 		case strings.HasPrefix(cmd, "cmux new-workspace"):
 			out, err := shell.ExecuteCapture(cmd, dir)
 			if err != nil {
@@ -131,10 +214,8 @@ func (cmx *CmuxBackend) Execute(p *plan.Plan, dir string) error {
 				surfaces, err := shell.ExecuteCapture(
 					fmt.Sprintf("cmux list-pane-surfaces --workspace %s", workspaceRef), dir)
 				if err == nil && surfaces != "" {
-					// First line has the surface ref, e.g. "* surface:5  ..."
 					firstLine := strings.Split(surfaces, "\n")[0]
-					fields := strings.Fields(firstLine)
-					for _, f := range fields {
+					for _, f := range strings.Fields(firstLine) {
 						if strings.HasPrefix(f, "surface:") {
 							surfaceRef = f
 							break
