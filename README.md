@@ -17,20 +17,43 @@ export PATH="$HOME/go/bin:$PATH"
 ## Usage
 
 ```
-openx add <name> [--path PATH]   # create a project config (defaults to cwd)
-openx list                       # list all projects
-openx show <name>                # print a project's config
-openx edit <name>                # open config in $EDITOR
-openx remove <name> [--yes]      # delete a project config
-openx <name>                     # open the project workspace
-openx <name> --dry-run           # print what would happen
-openx <name> --join              # add tabs to current workspace
-openx <name> --new-window        # force new workspace
-openx <name> --backend <name>    # override backend
-openx version                    # print version
+openx add <name> [--path PATH]       # create a project config (defaults to cwd)
+openx add-tab <name> <tab> [flags]   # add or update a tab
+openx clone <source> <new> [--path]  # clone a project config
+openx list                           # list all projects
+openx show <name>                    # print a project's config
+openx edit <name>                    # open config in $EDITOR
+openx remove <name> [--yes]          # delete a project config
+openx <name>                         # open the project workspace
+openx <name> --dry-run               # print what would happen
+openx <name> --join                  # new workspace in current window
+openx <name> --new-window            # new workspace in a new window
+openx <name> --backend <name>        # override backend
+openx version                        # print version
 ```
 
-Note: flags must come before the project name (e.g. `openx --dry-run myproject`).
+Flags can go before or after the project name (e.g. `openx myproject --dry-run` or `openx --dry-run myproject`).
+
+### Adding tabs
+
+```bash
+openx add-tab myproject claude --command claude    # add a tab named "claude"
+openx add-tab myproject shell                      # add a tab with no command (plain shell)
+openx add-tab myproject claude --command "claude --model opus"  # update existing tab's command
+openx add-tab myproject logs --after claude         # insert after a specific tab
+openx add-tab myproject logs --before shell          # insert before a specific tab
+```
+
+If a tab with the given name already exists, its command is updated in place without changing position.
+
+### Cloning configs
+
+```bash
+openx clone myproject myproject2 --path /path/to/new/project  # clone with new path
+openx clone myproject myproject2                               # clone, defaults path to cwd
+```
+
+Copies everything (tabs, pre/post open, backend, mode) from the source project.
 
 ## Config
 
