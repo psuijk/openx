@@ -4,13 +4,32 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"strings"
 
 	"github.com/psuijk/openx/internal/backend"
 	"github.com/psuijk/openx/internal/config"
 )
 
+// reorderArgs moves flags before positional args so Go's flag package parses them correctly.
+func reorderArgs(args []string) []string {
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		if strings.HasPrefix(args[i], "-") {
+			flags = append(flags, args[i])
+			// If it's a flag that takes a value (e.g. --backend cmux), grab the next arg too
+			if strings.HasPrefix(args[i], "--backend") && !strings.Contains(args[i], "=") && i+1 < len(args) {
+				i++
+				flags = append(flags, args[i])
+			}
+		} else {
+			positional = append(positional, args[i])
+		}
+	}
+	return append(flags, positional...)
+}
+
 func runHandler(args []string) error {
-	// parse flags (--dry-run, --join, --new-window, --backend)
+	args = reorderArgs(args)
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 
 	dryRun := fs.Bool("dry-run", false, "print what would happen without executing")
